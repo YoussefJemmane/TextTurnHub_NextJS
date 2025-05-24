@@ -1,0 +1,234 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// User and Authentication Models
+model User {
+  id                Int              @id @default(autoincrement())
+  name              String
+  email             String           @unique
+  email_verified_at DateTime?
+  password          String
+  remember_token    String?
+  created_at        DateTime         @default(now())
+  updated_at        DateTime         @updatedAt
+  
+  // Relations
+  userProfile       UserProfile?
+  companyProfile    CompanyProfile?
+  artisanProfile    ArtisanProfile?
+  sentMessages      Message[]        @relation("SentMessages")
+  conversations     ConversationUser[]
+  roles             UserRole[]
+  permissions       UserPermission[]
+}
+
+// Role and Permission Models (similar to Spatie)
+model Role {
+  id          Int        @id @default(autoincrement())
+  name        String     @unique
+  guard_name  String     @default("web")
+  created_at  DateTime   @default(now())
+  updated_at  DateTime   @updatedAt
+  
+  // Relations
+  users       UserRole[]
+  permissions RolePermission[]
+}
+
+model Permission {
+  id          Int              @id @default(autoincrement())
+  name        String           @unique
+  guard_name  String           @default("web")
+  created_at  DateTime         @default(now())
+  updated_at  DateTime         @updatedAt
+  
+  // Relations
+  users       UserPermission[]
+  roles       RolePermission[]
+}
+
+// Many-to-Many Relations for Roles and Permissions
+model UserRole {
+  user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id   Int
+  role      Role     @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  role_id   Int
+  
+  @@id([user_id, role_id])
+}
+
+model UserPermission {
+  user          User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id       Int
+  permission    Permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+  permission_id Int
+  
+  @@id([user_id, permission_id])
+}
+
+model RolePermission {
+  role          Role       @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  role_id       Int
+  permission    Permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+  permission_id Int
+  
+  @@id([role_id, permission_id])
+}
+
+// Profile Models
+model UserProfile {
+  id           Int      @id @default(autoincrement())
+  user_id      Int      @unique
+  bio          String?  @db.Text
+  location     String?
+  interests    String?  @db.Text
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+  
+  // Relations
+  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model CompanyProfile {
+  id                Int           @id @default(autoincrement())
+  user_id           Int           @unique
+  company_name      String
+  industry          String?
+  description       String?       @db.Text
+  location          String?
+  website           String?
+  created_at        DateTime      @default(now())
+  updated_at        DateTime      @updatedAt
+  
+  // Relations
+  user              User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  textileWastes     TextileWaste[]
+}
+
+model ArtisanProfile {
+  id                 Int       @id @default(autoincrement())
+  user_id            Int       @unique
+  artisan_specialty  String?
+  artisan_experience String?
+  materials_interest String?
+  created_at         DateTime  @default(now())
+  updated_at         DateTime  @updatedAt
+  
+  // Relations
+  user               User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  products           Product[]
+}
+
+// Textile Waste and Exchange Models
+model TextileWaste {
+  id                     Int             @id @default(autoincrement())
+  company_profile_id     Int
+  title                  String
+  description            String?         @db.Text
+  waste_type             String
+  material_type          String
+  quantity               Decimal         @db.Decimal(10, 2)
+  unit                   String
+  condition              String?
+  color                  String?
+  composition            String?
+  minimum_order_quantity Decimal?        @db.Decimal(10, 2)
+  price_per_unit         Decimal?        @db.Decimal(10, 2)
+  location               String?
+  availability_status    String          @default("available")
+  images                 String?         @db.Text // Stored as JSON string
+  sustainability_metrics String?         @db.Text // Stored as JSON string
+  created_at             DateTime        @default(now())
+  updated_at             DateTime        @updatedAt
+  
+  // Relations
+  companyProfile         CompanyProfile  @relation(fields: [company_profile_id], references: [id], onDelete: Cascade)
+  wasteExchanges         WasteExchange[]
+}
+
+model WasteExchange {
+  id                Int          @id @default(autoincrement())
+  textile_waste_id  Int
+  requester_id      Int
+  quantity          Decimal      @db.Decimal(10, 2)
+  status            String       @default("pending") // pending, accepted, rejected, completed, cancelled
+  request_message   String?      @db.Text
+  response_message  String?      @db.Text
+  price             Decimal?     @db.Decimal(10, 2)
+  exchange_date     DateTime?
+  created_at        DateTime     @default(now())
+  updated_at        DateTime     @updatedAt
+  
+  // Relations
+  textileWaste      TextileWaste @relation(fields: [textile_waste_id], references: [id], onDelete: Cascade)
+}
+
+// Product Model
+model Product {
+  id                 Int            @id @default(autoincrement())
+  artisan_profile_id Int
+  name               String
+  description        String?        @db.Text
+  category           String?
+  price              Decimal        @db.Decimal(10, 2)
+  stock              Int            @default(0)
+  unit               String?
+  color              String?
+  material           String?
+  image              String?        // Path to image
+  sales_count        Int            @default(0)
+  is_featured        Boolean        @default(false)
+  created_at         DateTime       @default(now())
+  updated_at         DateTime       @updatedAt
+  
+  // Relations
+  artisanProfile     ArtisanProfile @relation(fields: [artisan_profile_id], references: [id], onDelete: Cascade)
+}
+
+// Messaging Models
+model Conversation {
+  id         Int                @id @default(autoincrement())
+  title      String?
+  created_at DateTime           @default(now())
+  updated_at DateTime           @updatedAt
+  
+  // Relations
+  messages   Message[]
+  users      ConversationUser[]
+}
+
+model ConversationUser {
+  conversation_id Int
+  user_id         Int
+  created_at      DateTime     @default(now())
+  updated_at      DateTime     @updatedAt
+  
+  // Relations
+  conversation    Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  @@id([conversation_id, user_id])
+}
+
+model Message {
+  id              Int          @id @default(autoincrement())
+  conversation_id Int
+  sender_id       Int
+  content         String       @db.Text
+  read_at         DateTime?
+  created_at      DateTime     @default(now())
+  updated_at      DateTime     @updatedAt
+  
+  // Relations
+  conversation    Conversation @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  sender          User         @relation("SentMessages", fields: [sender_id], references: [id], onDelete: Cascade)
+}
