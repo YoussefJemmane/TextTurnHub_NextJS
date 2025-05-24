@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "../../../auth/[...nextauth]/route";
+import { authOptions } from "@/app/api/auth/auth.config";
 import prisma from "@/lib/prisma";
 
 interface Params {
@@ -13,13 +13,13 @@ interface Params {
 export async function GET(request: NextRequest, { params }: Params) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const textileWasteId = parseInt(params.id);
-    
+
     // Get textile waste with company details
     const textileWaste = await prisma.textileWaste.findUnique({
       where: { id: textileWasteId },
@@ -30,37 +30,53 @@ export async function GET(request: NextRequest, { params }: Params) {
             company_name: true,
             industry: true,
             location: true,
-            user_id: true
-          }
-        }
-      }
+            user_id: true,
+          },
+        },
+      },
     });
 
     if (!textileWaste) {
-      return NextResponse.json({ error: "Textile waste not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Textile waste not found" },
+        { status: 404 }
+      );
     }
 
-    // Parse JSON fields
-    if (textileWaste.images && typeof textileWaste.images === 'string') {
+    // Parse JSON fields for response only, do not mutate DB object
+    let images = [];
+    if (textileWaste.images && typeof textileWaste.images === "string") {
       try {
-        textileWaste.images = JSON.parse(textileWaste.images);
+        images = JSON.parse(textileWaste.images);
       } catch (e) {
-        textileWaste.images = [];
+        images = [];
       }
     }
-
-    if (textileWaste.sustainability_metrics && typeof textileWaste.sustainability_metrics === 'string') {
+    let sustainability_metrics = {};
+    if (
+      textileWaste.sustainability_metrics &&
+      typeof textileWaste.sustainability_metrics === "string"
+    ) {
       try {
-        textileWaste.sustainability_metrics = JSON.parse(textileWaste.sustainability_metrics);
+        sustainability_metrics = JSON.parse(
+          textileWaste.sustainability_metrics
+        );
       } catch (e) {
-        textileWaste.sustainability_metrics = {};
+        sustainability_metrics = {};
       }
     }
-
-    return NextResponse.json({ textileWaste });
+    const response = {
+      ...textileWaste,
+      images,
+      sustainability_metrics,
+    };
+    return NextResponse.json({ textileWaste: response });
   } catch (error) {
     console.error("Error fetching textile waste:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
@@ -68,7 +84,7 @@ export async function GET(request: NextRequest, { params }: Params) {
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -76,22 +92,28 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const userId = parseInt(session.user.id);
     const textileWasteId = parseInt(params.id);
     const body = await request.json();
-    
+
     // Get textile waste
     const textileWaste = await prisma.textileWaste.findUnique({
       where: { id: textileWasteId },
       include: {
-        companyProfile: true
-      }
+        companyProfile: true,
+      },
     });
 
     if (!textileWaste) {
-      return NextResponse.json({ error: "Textile waste not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Textile waste not found" },
+        { status: 404 }
+      );
     }
 
     // Check if user owns this textile waste
     if (textileWaste.companyProfile.user_id !== userId) {
-      return NextResponse.json({ error: "Forbidden: You don't own this textile waste" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Forbidden: You don't own this textile waste" },
+        { status: 403 }
+      );
     }
 
     // Update textile waste
@@ -112,18 +134,23 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         location: body.location,
         availability_status: body.availability_status,
         images: body.images ? JSON.stringify(body.images) : textileWaste.images,
-        sustainability_metrics: body.sustainability_metrics ? JSON.stringify(body.sustainability_metrics) : textileWaste.sustainability_metrics
-      }
+        sustainability_metrics: body.sustainability_metrics
+          ? JSON.stringify(body.sustainability_metrics)
+          : textileWaste.sustainability_metrics,
+      },
     });
 
     return NextResponse.json({
       success: true,
       message: "Textile waste updated successfully",
-      textileWaste: updatedTextileWaste
+      textileWaste: updatedTextileWaste,
     });
   } catch (error) {
     console.error("Error updating textile waste:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
@@ -131,42 +158,54 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const userId = parseInt(session.user.id);
     const textileWasteId = parseInt(params.id);
-    
+
     // Get textile waste
     const textileWaste = await prisma.textileWaste.findUnique({
       where: { id: textileWasteId },
       include: {
-        companyProfile: true
-      }
+        companyProfile: true,
+      },
     });
 
     if (!textileWaste) {
-      return NextResponse.json({ error: "Textile waste not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Textile waste not found" },
+        { status: 404 }
+      );
     }
 
     // Check if user owns this textile waste or is admin
-    if (textileWaste.companyProfile.user_id !== userId && !session.user.roles.includes("admin")) {
-      return NextResponse.json({ error: "Forbidden: You don't own this textile waste" }, { status: 403 });
+    if (
+      textileWaste.companyProfile.user_id !== userId &&
+      !session.user.roles.includes("admin")
+    ) {
+      return NextResponse.json(
+        { error: "Forbidden: You don't own this textile waste" },
+        { status: 403 }
+      );
     }
 
     // Delete textile waste
     await prisma.textileWaste.delete({
-      where: { id: textileWasteId }
+      where: { id: textileWasteId },
     });
 
     return NextResponse.json({
       success: true,
-      message: "Textile waste deleted successfully"
+      message: "Textile waste deleted successfully",
     });
   } catch (error) {
     console.error("Error deleting textile waste:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

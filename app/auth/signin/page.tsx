@@ -1,11 +1,11 @@
 ﻿"use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useState, Suspense } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function SignInPage() {
+function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/";
@@ -51,13 +51,19 @@ export default function SignInPage() {
         <div className="bg-white px-4 py-8 shadow sm:rounded-lg sm:px-10">
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
-              <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+              <div
+                className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded relative"
+                role="alert"
+              >
                 <span className="block sm:inline">{error}</span>
               </div>
             )}
-            
+
             <div>
-              <label htmlFor="email" className="block text-sm font-medium leading-6">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium leading-6"
+              >
                 Email address
               </label>
               <div className="mt-2">
@@ -75,7 +81,10 @@ export default function SignInPage() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium leading-6">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium leading-6"
+              >
                 Password
               </label>
               <div className="mt-2">
@@ -116,7 +125,10 @@ export default function SignInPage() {
             </div>
 
             <div className="mt-6 text-center">
-              <Link href="/auth/register" className="font-medium text-teal-600 hover:text-teal-500">
+              <Link
+                href="/auth/register"
+                className="font-medium text-teal-600 hover:text-teal-500"
+              >
                 Register
               </Link>
             </div>
@@ -124,5 +136,13 @@ export default function SignInPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center">Loading...</div>}>
+      <SignInContent />
+    </Suspense>
   );
 }

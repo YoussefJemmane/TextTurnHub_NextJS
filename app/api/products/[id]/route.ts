@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "../../../auth/[...nextauth]/route";
+import { authOptions } from "@/app/api/auth/auth.config";
 import prisma from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
 
 interface Params {
   params: {
@@ -12,93 +13,147 @@ interface Params {
 // GET /api/products/[id]
 export async function GET(request: NextRequest, { params }: Params) {
   try {
-    const productId = parseInt(params.id);
-    
-    // Get product with artisan details
-    const product = await prisma.product.findUnique({
-      where: { id: productId },
-      include: {
-        artisanProfile: {
-          include: {
-            user: {
-              select: {
-                name: true
-              }
-            }
-          }
-        }
-      }
-    });
-
-    if (!product) {
-      return NextResponse.json({ error: "Product not found" }, { status: 404 });
-    }
-
-    return NextResponse.json({ product });
-  } catch (error) {
-    console.error("Error fetching product:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-  }
-}
-
-// PATCH /api/products/[id]
-export async function PATCH(request: NextRequest, { params }: Params) {
-  try {
     const session = await getServerSession(authOptions);
-    
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = parseInt(session.user.id);
     const productId = parseInt(params.id);
-    const body = await request.json();
-    
-    // Get product
+    if (isNaN(productId)) {
+      return NextResponse.json(
+        { error: "Invalid product ID" },
+        { status: 400 }
+      );
+    }
+
     const product = await prisma.product.findUnique({
       where: { id: productId },
       include: {
-        artisanProfile: true
-      }
+        artisanProfile: {
+          select: {
+            id: true,
+            user_id: true,
+            artisan_specialty: true,
+            user: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    // Check if user owns this product or is admin
-    const isOwner = product.artisanProfile.user_id === userId;
-    const isAdmin = session.user.roles.includes("admin");
-    
-    if (!isOwner && !isAdmin) {
-      return NextResponse.json({ error: "Forbidden: You don't own this product" }, { status: 403 });
+    // If user is an artisan, verify they own the product
+    if (
+      session.user.roles.includes("artisan") &&
+      product.artisanProfile.user_id !== session.user.id
+    ) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    return NextResponse.json(product);
+  } catch (error) {
+    console.error("Error fetching product:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT /api/products/[id]
+export async function PUT(request: NextRequest, { params }: Params) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id || !session.user.roles.includes("artisan")) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const productId = parseInt(params.id);
+    if (isNaN(productId)) {
+      return NextResponse.json(
+        { error: "Invalid product ID" },
+        { status: 400 }
+      );
+    }
+
+    // Get artisan profile
+    const artisanProfile = await prisma.artisanProfile.findUnique({
+      where: { user_id: session.user.id },
+    });
+
+    if (!artisanProfile) {
+      return NextResponse.json(
+        { error: "Artisan profile not found" },
+        { status: 404 }
+      );
+    }
+
+    // Verify product ownership
+    const existingProduct = await prisma.product.findUnique({
+      where: { id: productId },
+    });
+
+    if (!existingProduct) {
+      return NextResponse.json({ error: "Product not found" }, { status: 404 });
+    }
+
+    if (existingProduct.artisan_profile_id !== artisanProfile.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const formData = await request.formData();
+    const name = formData.get("name") as string;
+    const description = formData.get("description") as string;
+    const category = formData.get("category") as string;
+    const price = parseFloat(formData.get("price") as string);
+    const stock = parseInt(formData.get("stock") as string);
+    const unit = formData.get("unit") as string;
+    const color = formData.get("color") as string;
+    const material = formData.get("material") as string;
+    const image = formData.get("image") as string | null;
+
+    // Validate required fields
+    if (!name || !description || !category || !price || !stock || !material) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
     }
 
     // Update product
     const updatedProduct = await prisma.product.update({
       where: { id: productId },
       data: {
-        name: body.name,
-        description: body.description,
-        category: body.category,
-        price: body.price,
-        stock: body.stock,
-        unit: body.unit,
-        color: body.color,
-        material: body.material,
-        image: body.image,
-        is_featured: isAdmin ? body.is_featured : product.is_featured // Only admin can update featured status
-      }
+        name,
+        description,
+        category,
+        price,
+        stock,
+        unit,
+        color,
+        material,
+        image, // Store base64 image directly
+      },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "Product updated successfully",
-      product: updatedProduct
-    });
+    revalidatePath("/products/manage");
+    revalidatePath("/shop");
+    revalidatePath(`/products/${productId}`);
+
+    return NextResponse.json(updatedProduct);
   } catch (error) {
     console.error("Error updating product:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
@@ -106,45 +161,60 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 export async function DELETE(request: NextRequest, { params }: Params) {
   try {
     const session = await getServerSession(authOptions);
-    
-    if (!session?.user?.id) {
+    if (!session?.user?.id || !session.user.roles.includes("artisan")) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = parseInt(session.user.id);
     const productId = parseInt(params.id);
-    
-    // Get product
+    if (isNaN(productId)) {
+      return NextResponse.json(
+        { error: "Invalid product ID" },
+        { status: 400 }
+      );
+    }
+
+    // Get artisan profile
+    const artisanProfile = await prisma.artisanProfile.findUnique({
+      where: { user_id: session.user.id },
+    });
+
+    if (!artisanProfile) {
+      return NextResponse.json(
+        { error: "Artisan profile not found" },
+        { status: 404 }
+      );
+    }
+
+    // Verify product ownership
     const product = await prisma.product.findUnique({
       where: { id: productId },
-      include: {
-        artisanProfile: true
-      }
     });
 
     if (!product) {
       return NextResponse.json({ error: "Product not found" }, { status: 404 });
     }
 
-    // Check if user owns this product or is admin
-    const isOwner = product.artisanProfile.user_id === userId;
-    const isAdmin = session.user.roles.includes("admin");
-    
-    if (!isOwner && !isAdmin) {
-      return NextResponse.json({ error: "Forbidden: You don't own this product" }, { status: 403 });
+    if (product.artisan_profile_id !== artisanProfile.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Delete product
     await prisma.product.delete({
-      where: { id: productId }
+      where: { id: productId },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "Product deleted successfully"
-    });
+    revalidatePath("/products/manage");
+    revalidatePath("/shop");
+
+    return NextResponse.json(
+      { message: "Product deleted successfully" },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Error deleting product:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

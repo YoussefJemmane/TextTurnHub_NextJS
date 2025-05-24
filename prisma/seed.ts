@@ -25,9 +25,9 @@ async function main() {
       create: { name: 'artisan' }
     }),
     prisma.role.upsert({
-      where: { name: 'user' },
+      where: { name: 'buyer' },
       update: {},
-      create: { name: 'user' }
+      create: { name: 'buyer' }
     })
   ]);
 
@@ -165,48 +165,48 @@ async function main() {
 
   console.log('Artisan user created:', artisan.email);
 
-  // Create regular user
-  console.log('Creating regular user...');
-  const userPassword = await bcrypt.hash('user123', 10);
+  // Create buyer user
+  console.log('Creating buyer user...');
+  const buyerPassword = await bcrypt.hash('buyer123', 10);
   
-  const user = await prisma.user.upsert({
-    where: { email: 'user@example.com' },
+  const buyer = await prisma.user.upsert({
+    where: { email: 'buyer@example.com' },
     update: {},
     create: {
-      name: 'Regular User',
-      email: 'user@example.com',
-      password: userPassword,
+      name: 'Buyer User',
+      email: 'buyer@example.com',
+      password: buyerPassword,
       email_verified_at: new Date()
     }
   });
 
-  // Assign user role
+  // Assign buyer role
   await prisma.userRole.upsert({
     where: { 
       user_id_role_id: {
-        user_id: user.id,
+        user_id: buyer.id,
         role_id: roles[3].id
       }
     },
     update: {},
     create: {
-      user_id: user.id,
+      user_id: buyer.id,
       role_id: roles[3].id
     }
   });
 
-  // Create user profile
+  // Create buyer profile
   await prisma.userProfile.upsert({
-    where: { user_id: user.id },
+    where: { user_id: buyer.id },
     update: {},
     create: {
-      user_id: user.id,
+      user_id: buyer.id,
       bio: 'Interested in sustainable fashion',
       location: 'San Francisco, USA'
     }
   });
 
-  console.log('Regular user created:', user.email);
+  console.log('Buyer user created:', buyer.email);
 
   // Create sample textile waste
   console.log('Creating sample textile waste...');

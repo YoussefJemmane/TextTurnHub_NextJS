@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -12,7 +9,7 @@ datasource db {
 
 // User and Authentication Models
 model User {
-  id                Int              @id @default(autoincrement())
+  id                String            @id @default(cuid())
   name              String
   email             String           @unique
   email_verified_at DateTime?
@@ -29,6 +26,7 @@ model User {
   conversations     ConversationUser[]
   roles             UserRole[]
   permissions       UserPermission[]
+  cartItems         CartItem[]
 }
 
 // Role and Permission Models (similar to Spatie)
@@ -59,7 +57,7 @@ model Permission {
 // Many-to-Many Relations for Roles and Permissions
 model UserRole {
   user      User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  user_id   Int
+  user_id   String
   role      Role     @relation(fields: [role_id], references: [id], onDelete: Cascade)
   role_id   Int
   
@@ -68,7 +66,7 @@ model UserRole {
 
 model UserPermission {
   user          User       @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  user_id       Int
+  user_id       String
   permission    Permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
   permission_id Int
   
@@ -87,7 +85,7 @@ model RolePermission {
 // Profile Models
 model UserProfile {
   id           Int      @id @default(autoincrement())
-  user_id      Int      @unique
+  user_id      String   @unique
   bio          String?  @db.Text
   location     String?
   interests    String?  @db.Text
@@ -100,7 +98,7 @@ model UserProfile {
 
 model CompanyProfile {
   id                Int           @id @default(autoincrement())
-  user_id           Int           @unique
+  user_id           String        @unique
   company_name      String
   industry          String?
   description       String?       @db.Text
@@ -116,7 +114,7 @@ model CompanyProfile {
 
 model ArtisanProfile {
   id                 Int       @id @default(autoincrement())
-  user_id            Int       @unique
+  user_id            String    @unique
   artisan_specialty  String?
   artisan_experience String?
   materials_interest String?
@@ -145,8 +143,8 @@ model TextileWaste {
   price_per_unit         Decimal?        @db.Decimal(10, 2)
   location               String?
   availability_status    String          @default("available")
-  images                 String?         @db.Text // Stored as JSON string
-  sustainability_metrics String?         @db.Text // Stored as JSON string
+  images                 String?         @db.LongText // Changed to LongText for larger JSON strings
+  sustainability_metrics String?         @db.Text
   created_at             DateTime        @default(now())
   updated_at             DateTime        @updatedAt
   
@@ -167,7 +165,7 @@ model WasteExchange {
   exchange_date     DateTime?
   created_at        DateTime     @default(now())
   updated_at        DateTime     @updatedAt
-  
+  city              String       @db.Text
   // Relations
   textileWaste      TextileWaste @relation(fields: [textile_waste_id], references: [id], onDelete: Cascade)
 }
@@ -184,7 +182,7 @@ model Product {
   unit               String?
   color              String?
   material           String?
-  image              String?        // Path to image
+  image              String?        @db.LongText // Changed to LongText for base64 images
   sales_count        Int            @default(0)
   is_featured        Boolean        @default(false)
   created_at         DateTime       @default(now())
@@ -192,6 +190,24 @@ model Product {
   
   // Relations
   artisanProfile     ArtisanProfile @relation(fields: [artisan_profile_id], references: [id], onDelete: Cascade)
+  cartItems          CartItem[]
+}
+
+// Cart Model
+model CartItem {
+  id          String   @id @default(cuid())
+  userId      String   // Changed to String to match session.user.id type
+  productId   Int
+  quantity    Int
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([productId])
 }
 
 // Messaging Models
@@ -208,7 +224,7 @@ model Conversation {
 
 model ConversationUser {
   conversation_id Int
-  user_id         Int
+  user_id         String
   created_at      DateTime     @default(now())
   updated_at      DateTime     @updatedAt
   
@@ -222,7 +238,7 @@ model ConversationUser {
 model Message {
   id              Int          @id @default(autoincrement())
   conversation_id Int
-  sender_id       Int
+  sender_id       String
   content         String       @db.Text
   read_at         DateTime?
   created_at      DateTime     @default(now())

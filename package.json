@@ -20,6 +20,10 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.9.1",
+    "@foliojs-fork/pdfkit": "^0.15.3",
+    "@types/pdfkit": "^0.13.9",
+    "@vercel/blob": "^1.1.1",
+    "axios": "^1.9.0",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "dotenv": "^16.5.0",
@@ -27,9 +31,12 @@
     "mysql2": "^3.14.1",
     "next": "15.3.2",
     "next-auth": "^4.24.11",
+    "pdfkit": "^0.17.1",
+    "puppeteer": "^24.9.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "recharts": "^2.15.3"
+    "recharts": "^2.15.3",
+    "texturn_hub_next": "file:"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

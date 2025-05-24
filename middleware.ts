@@ -1,70 +1,67 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "next-auth/middleware";
-import { getToken } from "next-auth/jwt";
 
 export default withAuth(
-  async function middleware(req) {
-    const token = await getToken({ req });
-    const isAuth = !!token;
-    const isAuthPage = req.nextUrl.pathname.startsWith("/auth");
-    const isApiRoute = req.nextUrl.pathname.startsWith("/api");
+  function middleware(req) {
+    const token = req.nextauth.token;
+    const path = req.nextUrl.pathname;
 
-    // If protected API route and not authenticated, return unauthorized
-    if (isApiRoute && !isAuth && !req.nextUrl.pathname.startsWith("/api/auth")) {
-      return new NextResponse(
-        JSON.stringify({ success: false, message: "Authentication required" }),
-        { status: 401, headers: { "content-type": "application/json" } }
-      );
+    // If user is logged in and tries to access the root path
+    if (path === "/" && token) {
+      // Redirect based on user role
+      if (token.roles?.includes("company")) {
+        return NextResponse.redirect(new URL("/dashboard/company", req.url));
+      } else if (token.roles?.includes("admin")) {
+        return NextResponse.redirect(new URL("/dashboard/admin", req.url));
+      } else if (token.roles?.includes("artisan")) {
+        return NextResponse.redirect(new URL("/dashboard/artisan", req.url));
+      } else {
+        // Regular user
+        return NextResponse.redirect(new URL("/shop", req.url));
+      }
     }
 
-    // If auth page and authenticated, redirect to dashboard or home for admins
-    if (isAuthPage && isAuth) {
-      if (token.roles && token.roles.includes("admin")) {
-        return NextResponse.redirect(new URL("/", req.url));
-      }
-      return NextResponse.redirect(new URL("/dashboard", req.url));
+    // Protect admin routes
+    if (path.startsWith("/admin") && !token?.roles?.includes("admin")) {
+      return NextResponse.redirect(new URL("/shop", req.url));
     }
 
-    // If not auth page and not authenticated, redirect to login
-    if (!isAuthPage && !isAuth && !req.nextUrl.pathname.startsWith("/api")) {
-      return NextResponse.redirect(new URL("/auth/signin", req.url));
+    // Protect artisan routes
+    if (
+      path.startsWith("/dashboard/artisan") &&
+      !token?.roles?.includes("artisan")
+    ) {
+      return NextResponse.redirect(new URL("/shop", req.url));
     }
 
-    // Role-based access control
-    if (isAuth && token.roles) {
-      // Admin-only routes
-      if (req.nextUrl.pathname.startsWith("/admin") && !token.roles.includes("admin")) {
-        return NextResponse.redirect(new URL("/dashboard", req.url));
-      }
-
-      // Company-only routes
-      if (req.nextUrl.pathname.startsWith("/company") && !token.roles.includes("company")) {
-        return NextResponse.redirect(new URL("/dashboard", req.url));
-      }
-
-      // Artisan-only routes
-      if (req.nextUrl.pathname.startsWith("/artisan") && !token.roles.includes("artisan")) {
-        return NextResponse.redirect(new URL("/dashboard", req.url));
-      }
+    // Protect company routes
+    if (path.startsWith("/dashboard/company") && !token?.roles?.includes("company")) {
+      return NextResponse.redirect(new URL("/shop", req.url));
     }
 
     return NextResponse.next();
   },
   {
     callbacks: {
-      authorized: ({ token }) => !!token,
+      authorized: ({ token, req }) => {
+        // Allow public access to home page
+        if (req.nextUrl.pathname === "/") {
+          return true;
+        }
+        // Require authentication for other protected routes
+        return !!token;
+      },
     },
   }
 );
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
+    "/", // Add root path to matcher
+   
+    "/products/:path*",
     "/admin/:path*",
-    "/company/:path*",
-    "/artisan/:path*",
-    "/profile/:path*",
-    "/marketplace/:path*",
-    "/api/((?!auth/.*).)*",
+    "/dashboard/:path*",
+    "/cart/:path*",
   ],
 };

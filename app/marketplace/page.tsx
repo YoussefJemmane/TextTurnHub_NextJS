@@ -18,7 +18,7 @@ interface TextileWaste {
   price_per_unit: number;
   location: string;
   availability_status: string;
-  images: string[];
+  images: string;
   companyProfile: {
     company_name: string;
     location: string;
@@ -182,9 +182,7 @@ export default function MarketplacePage() {
           </div>
         </div>
       ) : error ? (
-        <div className="bg-red-50 text-red-700 p-4 rounded-md">
-          {error}
-        </div>
+        <div className="bg-red-50 text-red-700 p-4 rounded-md">{error}</div>
       ) : filteredWastes.length === 0 ? (
         <div className="bg-gray-50 p-8 rounded-md text-center">
           <p className="text-gray-600">No textile waste listings found.</p>
@@ -207,35 +205,36 @@ export default function MarketplacePage() {
                 key={waste.id}
                 className="bg-white shadow rounded-lg overflow-hidden hover:shadow-md transition"
               >
-                 <div className="h-48 relative">
-                   {(() => {
-                     try {
-                       const images = waste.images ? JSON.parse(waste.images) : [];
-                       const imageUrl = images && images.length > 0 
-                         ? (images[0].startsWith('/') || images[0].startsWith('http') 
-                           ? images[0] 
-                           : `/${images[0]}`)
-                         : '/images/placeholder.jpg';
-                       
-                       return (
-                         <Image
-                           src={imageUrl}
-                           alt={waste.title}
-                           fill
-                           style={{ objectFit: 'cover' }}
-                           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                         />
-                       );
-                     } catch (error) {
-                       console.error('Error parsing image data:', error);
-                       return (
-                         <div className="bg-gray-200 h-full flex items-center justify-center">
-                           <span className="text-gray-400">No image</span>
-                         </div>
-                       );
-                     }
-                   })()}
-                 </div>
+                <div className="h-48 relative">
+                  {(() => {
+                    try {
+                      // Parse images as array of objects
+                      const images = waste.images
+                        ? JSON.parse(waste.images)
+                        : [];
+                      const imageUrl =
+                        images && images.length > 0 && images[0].url
+                          ? images[0].url
+                          : "/images/placeholder.jpg";
+                      return (
+                        <Image
+                          src={imageUrl}
+                          alt={waste.title}
+                          fill
+                          style={{ objectFit: "cover" }}
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        />
+                      );
+                    } catch (error) {
+                      console.error("Error parsing image data:", error);
+                      return (
+                        <div className="bg-gray-200 h-full flex items-center justify-center">
+                          <span className="text-gray-400">No image</span>
+                        </div>
+                      );
+                    }
+                  })()}
+                </div>
                 <div className="p-4">
                   <div className="flex justify-between items-start mb-2">
                     <h2 className="text-xl font-semibold">{waste.title}</h2>
@@ -280,7 +279,7 @@ export default function MarketplacePage() {
                     <div>{waste.location}</div>
                   </div>
                   <Link
-                    href={`/textile-waste/${waste.id}`}
+                    href={`/textile-waste/show?id=${waste.id}`}
                     className="block w-full text-center bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700 transition"
                   >
                     View Details
