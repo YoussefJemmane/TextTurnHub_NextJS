@@ -146,7 +146,7 @@ model TextileWaste {
   price_per_unit         Decimal? @db.Decimal(10, 2)
   location               String?
   availability_status    String   @default("available")
-  images                 String?  @db.LongText // Changed to LongText for larger JSON strings
+  images                 String?  @db.Text // Changed from LongText to Text for PostgreSQL
   sustainability_metrics String?  @db.Text
   created_at             DateTime @default(now())
   updated_at             DateTime @updatedAt
@@ -187,7 +187,7 @@ model Product {
   unit               String?
   color              String?
   material           String?
-  image              String?  @db.LongText // Changed to LongText for base64 images
+  image              String?  @db.Text // Changed from LongText to Text for PostgreSQL
   sales_count        Int      @default(0)
   is_featured        Boolean  @default(false)
   created_at         DateTime @default(now())
