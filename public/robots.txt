@@ -1,0 +1,16 @@
+# Allow all crawlers
+User-agent: *
+Allow: /
+
+# Sitemap location
+Sitemap: https://texturnhub.com/sitemap.xml
+
+# Prevent crawling of private areas
+Disallow: /api/
+Disallow: /dashboard/private/
+Disallow: /admin/
+Disallow: /checkout/
+Disallow: /cart/
+
+# Crawl delay for better server performance
+Crawl-delay: 10 

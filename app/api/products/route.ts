@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/auth.config";
+import { authOptions } from "@/lib/auth.config";
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 
@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
+    if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -44,8 +44,8 @@ export async function GET(request: NextRequest) {
     // Add search filters
     if (search) {
       where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
+        { name: { contains: search } },
+        { description: { contains: search } },
       ];
     }
 
@@ -63,6 +63,19 @@ export async function GET(request: NextRequest) {
     // Get products
     const products = await prisma.product.findMany({
       where,
+      include: {
+        artisanProfile: {
+          select: {
+            artisan_specialty: true,
+            artisan_experience: true,
+            user: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+      },
       orderBy: { created_at: "desc" },
       take: limit,
       skip: offset,
@@ -136,7 +149,7 @@ export async function POST(request: NextRequest) {
         unit,
         color,
         material,
-        image, // Store base64 image directly
+        image,
         artisan_profile_id: artisanProfile.id,
       },
     });

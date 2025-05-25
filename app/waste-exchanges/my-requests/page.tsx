@@ -11,6 +11,7 @@ import {
   X,
 } from "lucide-react";
 import React from "react";
+import { useRouter } from "next/navigation";
 
 // Types
 interface TextileWaste {
@@ -20,7 +21,7 @@ interface TextileWaste {
 interface ExchangeRequest {
   id: number;
   textileWaste: TextileWaste;
-  requester_id: number;
+  requester_id: string;
   city?: string;
   quantity: string;
   request_message?: string;
@@ -67,6 +68,7 @@ export default function MyExchangeRequestsPage() {
   const [modalLoading, setModalLoading] = useState(false);
   const [modalError, setModalError] = useState("");
   const [modalData, setModalData] = useState<any>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -102,21 +104,8 @@ export default function MyExchangeRequestsPage() {
     fetchRequests();
   }, [status]);
 
-  const handleShowDetails = async (id: number) => {
-    setModalOpen(true);
-    setModalLoading(true);
-    setModalError("");
-    setModalData(null);
-    try {
-      const res = await fetch(`/api/waste-exchanges/${id}`);
-      if (!res.ok) throw new Error("Failed to fetch details");
-      const data = await res.json();
-      setModalData(data.wasteExchange);
-    } catch (err) {
-      setModalError("Could not load request details.");
-    } finally {
-      setModalLoading(false);
-    }
+  const handleShowDetails = (id: number) => {
+    router.push(`/waste-exchanges/${id}`);
   };
 
   const handleGenerateReceipt = async (id: number) => {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/auth.config";
+import { authOptions } from "@/lib/auth.config";
 import { saveBase64Image } from "@/lib/uploads";
 
 // POST /api/upload

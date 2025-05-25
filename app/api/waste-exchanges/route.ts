@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/auth.config";
+import { authOptions } from "@/lib/auth.config";
 import prisma from "@/lib/prisma";
 
 // GET /api/waste-exchanges
@@ -22,16 +22,13 @@ export async function GET(request: NextRequest) {
       whereClause.status = status;
     }
 
-    // Convert user ID to number
-    const userId =
-      typeof session.user.id === "string"
-        ? parseInt(session.user.id, 10)
-        : session.user.id;
+    // Keep user ID as string (no conversion needed)
+    const userId = session.user.id;
 
     // For companies, first get their company profile
     if (type === "received" && session.user.roles?.includes("company")) {
       const companyProfile = await prisma.companyProfile.findUnique({
-        where: { user_id: userId },
+        where: { user_id: userId }, // userId is already a string
         select: { id: true },
       });
 
@@ -49,7 +46,7 @@ export async function GET(request: NextRequest) {
         },
       };
     } else if (type === "sent") {
-      whereClause.requester_id = userId;
+      whereClause.requester_id = userId; // userId is a string, matching schema
     } else {
       return NextResponse.json(
         { error: "Invalid request type" },
@@ -91,7 +88,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = parseInt(session.user.id);
+    // Keep userId as string - no parseInt needed
+    const userId = session.user.id;
     const body = await request.json();
     const { textile_waste_id, quantity, request_message, city } = body;
 
@@ -105,7 +103,7 @@ export async function POST(request: NextRequest) {
 
     // Get textile waste
     const textileWaste = await prisma.textileWaste.findUnique({
-      where: { id: parseInt(textile_waste_id) },
+      where: { id: parseInt(textile_waste_id) }, // Only convert textile_waste_id to int
       include: {
         companyProfile: true,
       },
@@ -127,6 +125,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user is not requesting their own textile waste
+    // Compare string userId with string user_id from companyProfile
     if (textileWaste.companyProfile.user_id === userId) {
       return NextResponse.json(
         { error: "You cannot request your own textile waste" },
@@ -138,7 +137,7 @@ export async function POST(request: NextRequest) {
     const wasteExchange = await prisma.wasteExchange.create({
       data: {
         textile_waste_id: parseInt(textile_waste_id),
-        requester_id: userId,
+        requester_id: userId, // Keep as string - matches schema
         quantity,
         request_message,
         city,

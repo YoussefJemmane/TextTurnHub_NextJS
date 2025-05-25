@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import prisma from "@/lib/prisma";
-import { authOptions } from "@/app/api/auth/auth.config";
+import { authOptions } from "@/lib/auth.config";
 
 // Get cart items
 export async function GET() {
@@ -9,6 +9,18 @@ export async function GET() {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Check if user is a buyer
+    const buyerProfile = await prisma.buyerProfile.findUnique({
+      where: { user_id: session.user.id },
+    });
+
+    if (!buyerProfile) {
+      return NextResponse.json(
+        { error: "Only buyers can access cart" },
+        { status: 403 }
+      );
     }
 
     const cartItems = await prisma.cartItem.findMany({
@@ -56,6 +68,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Check if user is a buyer
+    const buyerProfile = await prisma.buyerProfile.findUnique({
+      where: { user_id: session.user.id },
+    });
+
+    if (!buyerProfile) {
+      return NextResponse.json(
+        { error: "Only buyers can add items to cart" },
+        { status: 403 }
+      );
+    }
+
     const { productId, quantity } = await req.json();
 
     // Validate input
@@ -92,6 +116,18 @@ export async function POST(req: Request) {
 
     let cartItem;
 
+    // Verify user exists
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      include: {
+        buyerProfile: true,
+      },
+    });
+
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
     if (existingCartItem) {
       // Update quantity if item exists
       cartItem = await prisma.cartItem.update({
@@ -125,8 +161,8 @@ export async function POST(req: Request) {
       cartItem = await prisma.cartItem.create({
         data: {
           userId: session.user.id,
-          productId,
-          quantity,
+          productId: productId,
+          quantity: quantity,
         },
         include: {
           product: {
@@ -167,6 +203,18 @@ export async function PUT(req: Request) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Check if user is a buyer
+    const buyerProfile = await prisma.buyerProfile.findUnique({
+      where: { user_id: session.user.id },
+    });
+
+    if (!buyerProfile) {
+      return NextResponse.json(
+        { error: "Only buyers can update cart" },
+        { status: 403 }
+      );
     }
 
     const { cartItemId, quantity } = await req.json();
@@ -228,6 +276,18 @@ export async function DELETE(req: Request) {
     const session = await getServerSession(authOptions);
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    // Check if user is a buyer
+    const buyerProfile = await prisma.buyerProfile.findUnique({
+      where: { user_id: session.user.id },
+    });
+
+    if (!buyerProfile) {
+      return NextResponse.json(
+        { error: "Only buyers can remove items from cart" },
+        { status: 403 }
+      );
     }
 
     const { cartItemId } = await req.json();

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/auth.config";
+import { authOptions } from "@/lib/auth.config";
 import prisma from "@/lib/prisma";
 import puppeteer from "puppeteer";
 import fs from "fs/promises";
@@ -47,10 +47,7 @@ export async function GET(
     }
 
     // Check if user has permission to access this receipt
-    const userId =
-      typeof session.user.id === "string"
-        ? parseInt(session.user.id)
-        : session.user.id;
+    const userId = session.user.id;
     if (
       exchange.requester_id !== userId &&
       exchange.textileWaste.companyProfile.user_id !== userId

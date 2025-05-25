@@ -3,20 +3,89 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "./providers/auth-provider";
 import Navigation from "./components/navigation";
+import JsonLd from "./components/JsonLd";
+import { Analytics } from "@vercel/analytics/react";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  themeColor: "#ffffff",
+  minimumScale: 1,
+  maximumScale: 5,
 };
 
 export const metadata: Metadata = {
-  title: "TexTurn Hub",
+  metadataBase: new URL("https://texturnhub.com"),
+  title: {
+    default: "TexTurn Hub - Sustainable Textile Waste Management Platform",
+    template: "%s | TexTurn Hub",
+  },
   description:
-    "A sustainable platform connecting textile waste providers with artisans",
-  keywords: ["textile", "sustainability", "artisans", "waste management"],
+    "TexTurn Hub connects textile waste providers with skilled artisans, promoting sustainable fashion and circular economy. Transform waste into valuable products while reducing environmental impact.",
+  keywords: [
+    "textile waste management",
+    "sustainable fashion",
+    "circular economy",
+    "artisan marketplace",
+    "upcycled textiles",
+    "eco-friendly fashion",
+    "waste reduction",
+    "sustainable manufacturing",
+    "textile recycling",
+    "ethical fashion",
+  ],
   authors: [{ name: "TexTurn Hub Team" }],
+  creator: "TexTurn Hub",
+  publisher: "TexTurn Hub",
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: "https://texturnhub.com",
+    siteName: "TexTurn Hub",
+    title: "TexTurn Hub - Sustainable Textile Waste Management Platform",
+    description:
+      "Transform textile waste into valuable products. Join our sustainable marketplace connecting waste providers with skilled artisans.",
+    images: [
+      {
+        url: "/images/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "TexTurn Hub - Sustainable Textile Solutions",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "TexTurn Hub - Sustainable Textile Solutions",
+    description:
+      "Transform textile waste into valuable products. Join our sustainable marketplace connecting waste providers with skilled artisans.",
+    images: ["/images/twitter-image.jpg"],
+    creator: "@texturnhub",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  verification: {
+    google: "your-google-site-verification",
+  },
+  alternates: {
+    canonical: "https://texturnhub.com",
+  },
 };
 
 interface RootLayoutProps {
@@ -26,6 +95,9 @@ interface RootLayoutProps {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en" className="light">
+      <head>
+        <JsonLd />
+      </head>
       <body
         className={`
           ${inter.className} 
@@ -53,6 +125,7 @@ export default function RootLayout({ children }: RootLayoutProps) {
             </footer>
           </div>
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   );

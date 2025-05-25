@@ -9,10 +9,12 @@ import {
   Package,
   AlertTriangle,
   ShoppingCart,
+  Check,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import useCart from "@/app/hooks/useCart";
 
 interface Product {
   id: number;
@@ -79,6 +81,9 @@ function ShopContent() {
     material: searchParams.get("material") || "",
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
+  const { incrementCartCount } = useCart();
 
   useEffect(() => {
     fetchProducts();
@@ -194,6 +199,12 @@ function ShopContent() {
     setFilters({ category: "", material: "" });
   };
 
+  const showSuccessToast = (message: string) => {
+    setToastMessage(message);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
+
   const ProductCard = ({ product }: { product: Product }) => (
     <Link
       href={`/products/${product.id}`}
@@ -288,11 +299,13 @@ function ShopContent() {
                     throw new Error("Failed to add to cart");
                   }
 
-                  // Show success message
-                  alert("Product added to cart successfully!");
+                  incrementCartCount();
+                  showSuccessToast("Product added to cart successfully!");
                 } catch (error) {
                   console.error("Error adding to cart:", error);
-                  alert("Failed to add product to cart. Please try again.");
+                  setToastMessage("Failed to add product to cart");
+                  setShowToast(true);
+                  setTimeout(() => setShowToast(false), 3000);
                 }
               }}
               className="bg-gray-100 text-gray-700 py-2 px-3 rounded-lg font-medium hover:bg-gray-200 transform hover:scale-[1.02] transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-1.5 text-sm"
@@ -323,6 +336,14 @@ function ShopContent() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
+      {/* Toast Notification */}
+      {showToast && (
+        <div className="fixed top-20 right-4 bg-emerald-600 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-2 z-50 animate-fade-in-down">
+          <Check className="w-5 h-5" />
+          {toastMessage}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
@@ -507,6 +528,31 @@ function ShopContent() {
       )}
     </div>
   );
+}
+
+// Add keyframe animation for toast
+const styles = `
+@keyframes fade-in-down {
+  from {
+    opacity: 0;
+    transform: translateY(-1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-down {
+  animation: fade-in-down 0.3s ease-out;
+}
+`;
+
+// Add the styles to the document
+if (typeof document !== "undefined") {
+  const styleSheet = document.createElement("style");
+  styleSheet.textContent = styles;
+  document.head.appendChild(styleSheet);
 }
 
 export default function SustainableShop() {

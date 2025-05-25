@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/auth.config";
+import { authOptions } from "@/lib/auth.config";
 import prisma from "@/lib/prisma";
 import axios from "axios";
 
 interface Params {
-  params: {
-    id: string;
-  };
+  params: Promise<{ id: string }>; // Changed to Promise
 }
 
 const ORS_API_KEY = process.env.ORS_API_KEY;
@@ -62,8 +60,9 @@ export async function GET(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = parseInt(session.user.id);
-    const exchangeId = parseInt(params.id);
+    const userId = session.user.id;
+    const resolvedParams = await params; // Await params before accessing properties
+    const exchangeId = parseInt(resolvedParams.id);
 
     // Get waste exchange with textile waste and company details
     const wasteExchange = await prisma.wasteExchange.findUnique({
@@ -92,14 +91,14 @@ export async function GET(request: NextRequest, { params }: Params) {
     }
 
     // Check if user is involved in this exchange (as requester or company owner)
-    const isRequester = wasteExchange.requester_id === userId;
+    const isRequester = wasteExchange.requester_id === userId; // Fixed: removed toString()
     const isCompanyOwner =
       wasteExchange.textileWaste.companyProfile.user_id === userId;
 
     if (
       !isRequester &&
       !isCompanyOwner &&
-      !session.user.roles.includes("admin")
+      !session.user.roles?.includes("admin") // Added optional chaining
     ) {
       return NextResponse.json(
         { error: "Forbidden: You're not involved in this exchange" },
@@ -164,8 +163,9 @@ export async function POST(request: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const userId = parseInt(session.user.id);
-    const exchangeId = parseInt(params.id);
+    const userId = session.user.id;
+    const resolvedParams = await params; // Await params before accessing properties
+    const exchangeId = parseInt(resolvedParams.id);
     const { action, response_message, price } = await request.json();
 
     // Get waste exchange
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     }
 
     // Check permissions for each action
-    const isRequester = wasteExchange.requester_id === userId;
+    const isRequester = wasteExchange.requester_id === userId; // Fixed: removed toString()
     const isCompanyOwner =
       wasteExchange.textileWaste.companyProfile.user_id === userId;
 

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { Package, Trash2, Plus, Minus, ShoppingBag } from "lucide-react";
 import Link from "next/link";
+import useCart from "@/app/hooks/useCart";
 
 interface CartItem {
   id: string;
@@ -28,6 +29,7 @@ export default function CartPage() {
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const { setCartCount, decrementCartCount } = useCart();
 
   useEffect(() => {
     if (status === "authenticated") {
@@ -43,6 +45,7 @@ export default function CartPage() {
       }
       const data = await response.json();
       setCartItems(data);
+      setCartCount(data.length);
       setError("");
     } catch (err) {
       setError("Error loading cart items");
@@ -68,6 +71,7 @@ export default function CartPage() {
 
       if (newQuantity === 0) {
         setCartItems((prev) => prev.filter((item) => item.id !== cartItemId));
+        decrementCartCount();
       } else {
         const updatedItem = await response.json();
         setCartItems((prev) =>
@@ -97,6 +101,7 @@ export default function CartPage() {
       }
 
       setCartItems((prev) => prev.filter((item) => item.id !== cartItemId));
+      decrementCartCount();
     } catch (err) {
       console.error(err);
       setError("Failed to remove item");
@@ -105,7 +110,7 @@ export default function CartPage() {
 
   const calculateTotal = () => {
     return cartItems.reduce(
-      (total, item) => total + item.product.price * item.quantity,
+      (total, item) => total + Number(item.product.price) * item.quantity,
       0
     );
   };
@@ -192,7 +197,7 @@ export default function CartPage() {
                     by {item.product.artisanProfile.user.name}
                   </p>
                   <p className="text-emerald-600 font-semibold mt-1">
-                    ${item.product.price.toFixed(2)}
+                    ${Number(item.product.price).toFixed(2)}
                     {item.product.unit && (
                       <span className="text-gray-500 text-sm">
                         {" "}
@@ -261,9 +266,13 @@ export default function CartPage() {
               <span>${calculateTotal().toFixed(2)}</span>
             </div>
           </div>
-          <button className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-3 px-4 rounded-xl font-medium hover:from-emerald-700 hover:to-teal-700 transition-all duration-200">
+          <Link
+            href="/checkout"
+            className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white py-3 px-4 rounded-xl font-medium hover:from-emerald-700 hover:to-teal-700 transition-all duration-200 flex items-center justify-center gap-2"
+          >
             Proceed to Checkout
-          </button>
+            <ShoppingBag className="w-5 h-5" />
+          </Link>
           <Link
             href="/shop"
             className="block text-center mt-4 text-emerald-600 hover:text-emerald-700 font-medium"

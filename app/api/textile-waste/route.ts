@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/auth.config";
+import { authOptions } from "@/lib/auth.config";
 import prisma from "@/lib/prisma";
 
 // GET /api/textile-waste
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
@@ -20,93 +20,99 @@ export async function GET(request: NextRequest) {
 
     // If company user, get only OTHER companies' waste listings (exclude their own)
     if (session.user.roles.includes("company")) {
-      const userId = parseInt(session.user.id);
-      
+      const userId = session.user.id;
+
       // Get company profile
       const companyProfile = await prisma.companyProfile.findUnique({
-        where: { user_id: userId }
+        where: { user_id: userId },
       });
 
       if (!companyProfile) {
-        return NextResponse.json({ error: "Company profile not found" }, { status: 404 });
+        return NextResponse.json(
+          { error: "Company profile not found" },
+          { status: 404 }
+        );
       }
 
       // Get OTHER companies' textile waste listings (NOT the current company's)
       const [textileWastes, total] = await prisma.$transaction([
         prisma.textileWaste.findMany({
-          where: { 
+          where: {
             company_profile_id: { not: companyProfile.id }, // Exclude current company's listings
-            ...(status !== "all" ? { availability_status: status } : {})
+            ...(status !== "all" ? { availability_status: status } : {}),
           },
           include: {
             companyProfile: {
               select: {
                 company_name: true,
-                location: true
-              }
-            }
+                location: true,
+              },
+            },
           },
           skip,
           take: limit,
-          orderBy: { created_at: "desc" }
+          orderBy: { created_at: "desc" },
         }),
         prisma.textileWaste.count({
-          where: { 
+          where: {
             company_profile_id: { not: companyProfile.id }, // Exclude current company's listings
-            ...(status !== "all" ? { availability_status: status } : {})
-          }
-        })
+            ...(status !== "all" ? { availability_status: status } : {}),
+          },
+        }),
       ]);
 
-      return NextResponse.json({ 
-        textileWastes, 
+      return NextResponse.json({
+        textileWastes,
         pagination: {
           total,
           page,
           limit,
-          totalPages: Math.ceil(total / limit)
-        }
+          totalPages: Math.ceil(total / limit),
+        },
       });
-    } 
+    }
     // Otherwise, return all available textile waste
     else {
       const [textileWastes, total] = await prisma.$transaction([
         prisma.textileWaste.findMany({
-          where: { 
-            ...(status !== "all" ? { availability_status: status } : {})
+          where: {
+            ...(status !== "all" ? { availability_status: status } : {}),
           },
           include: {
             companyProfile: {
               select: {
                 company_name: true,
-                location: true
-              }
-            }
+                location: true,
+              },
+            },
           },
           skip,
           take: limit,
-          orderBy: { created_at: "desc" }
+          orderBy: { created_at: "desc" },
         }),
         prisma.textileWaste.count({
-          where: { 
-            ...(status !== "all" ? { availability_status: status } : {})
-          }
-        })
+          where: {
+            ...(status !== "all" ? { availability_status: status } : {}),
+          },
+        }),
       ]);
 
-      return NextResponse.json({ 
-        textileWastes, 
+      return NextResponse.json({
+        textileWastes,
         pagination: {
           total,
           page,
           limit,
-          totalPages: Math.ceil(total / limit)
-        }
+          totalPages: Math.ceil(total / limit),
+        },
       });
     }
   } catch (error) {
     console.error("Error fetching textile waste:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
 
@@ -114,26 +120,32 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Check if user has company role
     if (!session.user.roles.includes("company")) {
-      return NextResponse.json({ error: "Forbidden: Requires company role" }, { status: 403 });
+      return NextResponse.json(
+        { error: "Forbidden: Requires company role" },
+        { status: 403 }
+      );
     }
 
-    const userId = parseInt(session.user.id);
+    const userId = session.user.id;
     const body = await request.json();
-    
+
     // Get company profile
     const companyProfile = await prisma.companyProfile.findUnique({
-      where: { user_id: userId }
+      where: { user_id: userId },
     });
 
     if (!companyProfile) {
-      return NextResponse.json({ error: "Company profile not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Company profile not found" },
+        { status: 404 }
+      );
     }
 
     // Create textile waste listing
@@ -154,17 +166,25 @@ export async function POST(request: NextRequest) {
         location: body.location || companyProfile.location,
         availability_status: "available",
         images: body.images ? JSON.stringify(body.images) : null,
-        sustainability_metrics: body.sustainability_metrics ? JSON.stringify(body.sustainability_metrics) : null
-      }
+        sustainability_metrics: body.sustainability_metrics
+          ? JSON.stringify(body.sustainability_metrics)
+          : null,
+      },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "Textile waste listed successfully",
-      textileWaste: newTextileWaste
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        message: "Textile waste listed successfully",
+        textileWaste: newTextileWaste,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("Error creating textile waste listing:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }

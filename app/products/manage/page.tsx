@@ -55,18 +55,39 @@ export default function ManageProductsPage() {
     material: "",
   });
 
+  // Check authentication
   useEffect(() => {
     if (status === "loading") return;
 
     if (!session || !session.user.roles.includes("artisan")) {
-      router.push("/auth/signin");
+      router.push("/auth/signin?callbackUrl=/products/manage");
       return;
     }
+  }, [session, status, router]);
 
-    fetchProducts();
-  }, [session, status, router, pagination.page]);
+  // Handle search and filters
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      if (pagination.page !== 1) {
+        setPagination((prev) => ({ ...prev, page: 1 }));
+      } else {
+        fetchProducts();
+      }
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [searchTerm, filters]);
+
+  // Handle page changes
+  useEffect(() => {
+    if (session?.user) {
+      fetchProducts();
+    }
+  }, [pagination.page, session]);
 
   const fetchProducts = async () => {
+    if (!session?.user) return;
+
     setLoading(true);
     try {
       const queryParams = new URLSearchParams({
@@ -84,9 +105,15 @@ export default function ManageProductsPage() {
         queryParams.append("material", filters.material);
       }
 
-      const response = await fetch(`/api/products?${queryParams}`);
+      const response = await fetch(`/api/products?${queryParams}`, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
       if (!response.ok) {
-        throw new Error("Failed to fetch products");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to fetch products");
       }
 
       const data = await response.json();
@@ -94,8 +121,12 @@ export default function ManageProductsPage() {
       setPagination(data.pagination);
       setError("");
     } catch (err) {
-      setError("Error fetching products. Please try again later.");
-      console.error(err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error fetching products. Please try again later."
+      );
+      console.error("Error fetching products:", err);
     } finally {
       setLoading(false);
     }
